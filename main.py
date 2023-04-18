@@ -6,18 +6,23 @@ from timer import *
 from telebot.types import InputMediaPhoto
 
 bot = telebot.TeleBot('6121940381:AAGLygbXhCIGRfXU-M6prlfg9D0uwGIzyM0')
+Log(text=f'Бот запущен https://t.me/{bot.get_me().username}')
 
 bot.unban_chat_member(chat_id='-1001881688132', user_id='1709337743')
 bot.unban_chat_member(chat_id='-1001881688132', user_id='5082791922')
 
-admins=[]
 
 async def main(bot):
-    # await subscription_timer(bot)
-    
     @bot.callback_query_handler(func=lambda call: True)
     def process_callback_button(callback_query):
         bot.send_message(callback_query.from_user.id, callback_query.data)
+
+    @bot.message_handler(commands=['admin'])
+    def admin_panel(message):
+        Log(message=message, text=f'Пользователь {message.chat.username}, написал комманду /admin\n Администраторы {admins}-{message.chat.id}')
+        if message.chat.id in admins:
+            Log(text=f'Пользователь {message.chat.username}, Администратор')
+            bot.send_message(message.chat.id, admin_panel_text, reply_markup=menu_button(admin_menu_list), parse_mode='Markdown')
 
     @bot.message_handler(commands=['start'])
     def message_start(message):
@@ -57,45 +62,18 @@ async def main(bot):
                     Log(error=traceback.format_exc())
                     bot.send_message(message.chat.id, error_invinte, reply_markup=menu_button(menu_list), parse_mode='Markdown')
 
-@bot.message_handler(content_types=['text', 'photo', 'video', 'document'])
-def broadcasts(message):
-    users = db.get_all_users()
-    total_users = len(users)
-    sent_count = 0
-
-    if message.text and ':' in message.text or message.caption and ':' in message.caption:
-        initial_text = "Рассылка началась:\n0%"
-        sent_message = bot.send_message(message.chat.id, initial_text)
-
-        for user in users:
-            try:
-                if message.text:
-                    bot.send_message(user[0], message.text)
-                elif message.content_type == 'photo':
-                    bot.send_photo(user[0], message.photo[-1].file_id, caption=message.caption)
-                elif message.content_type == 'video':
-                    bot.send_video(user[0], message.video.file_id, caption=message.caption)
-                elif message.content_type == 'document':
-                    bot.send_document(user[0], message.document.file_id, caption=message.caption)
-
-                sent_count += 1
-                config.Log(message=message, text=f'Пользователю @{user[1]} отправлено сообщение  # {message.text or message.caption} #', error=None)
-
-                progress = int(sent_count / total_users * 100)
-                updated_text = f"Рассылка началась:\n{progress}%"
-                bot.edit_message_text(updated_text, message.chat.id, sent_message.message_id)
-
-            except Exception as e:
-                config.Log(message=message, text=f"Ошибка отправки сообщения пользователю @{user[1]}: {str(e)}", error=None)
-
-        bot.send_message(message.chat.id, "Рассылка завершена")
-    else:
-        continue
-
-    @bot.message_handler(commands=['admin'])
-    def admin_panel(message):
-        if message.chat.id in admins:
-            bot.send_message(message.chat.id, admin_panel_text, reply_markup=menu_button(admin_menu_list), parse_mode='Markdown')
+    @bot.message_handler(content_types=['photo', 'video', 'document'])
+    def broadcasts(message):
+        if parse_message(message.text):
+            if message.text and ':' in message.text and message.chat.id in admins:
+                name, text, day, formatted_time = parse_message(message.text)
+                Log(text=f"Готовый результат:\n{name}\n{text}\n{day}\n{formatted_time}")
+                bot.send_message(message.chat.id, f"Рассылка запланирована на {day}-{formatted_time}")
+                asyncio.run(schedule_broadcast(name, text, day, formatted_time,bot, message.chat.id if message.chat.id in admins else None))
+            elif ':' not in message.text:
+                bot.send_message(message.chat.id, 'Не правильный формат', reply_markup=menu_button(admin_menu_list))
+        else:
+            bot.send_message(message.chat.id, 'Ошибка разбора текста, попробуйте еще раз', reply_markup=menu_button(admin_menu_list))
 
     @bot.message_handler(content_types=['text'])
     def handle_button_press(message):
@@ -123,28 +101,32 @@ def broadcasts(message):
                 bot.send_message(message.chat.id, 'https://www.youtube.com/watch?v=8UMEfg6pvDo',reply_markup=menu_button(menu_list))
             
             elif message.text == "Розпочати розсилання":
-                msg=bot.send_message(message.chat.id, 'Напишiть текст або фото з текстом у форматi (Адмiнiстарор):(ваш текст)')
+                msg=bot.send_message(message.chat.id, admin_panel_breadcast)
                 bot.register_next_step_handler(msg, broadcasts)
             
-            else:
-                for user in db_read():
-                    if message.chat.id in admins:
-                        Log(message=message, text=message.text, error=None)
-                        bot.send_message(user[1], message.text, reply_markup=menu_button(menu_list), parse_mode='Markdown')
-                # Handle unknown button press
-                pass
+        #     else:
+        #         for user in db_read():
+        #             if message.chat.id in admins:
+        #                 Log(message=message, text=message.text, error=None)
+        #                 bot.send_message(user[1], message.text, reply_markup=menu_button(menu_list), parse_mode='Markdown')
+        #         # Handle unknown button press
+        #         pass
+        #     if message.text and ':' in message.text:
+        #         bot.register_next_step_handler(message, broadcasts)
         except:
             Log(error=traceback.format_exc())
 
     if __name__ == '__main__':
             while True:
                 try:
-                    bot.polling(none_stop=True, timeout=60)
+                    bot.polling(none_stop=True)
                 except:
                     Log(error=traceback.format_exc())
                     break
     
 
 if __name__ == '__main__':
-    tasks=[]
-    asyncio.run(main(bot))
+    try:
+        asyncio.run(main(bot))
+    except:
+        Log(error=traceback.format_exc())

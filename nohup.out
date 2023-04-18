@@ -1,0 +1,24 @@
+********************
+[ERROR] 2023-04-13 16:39:33.199829:
+	Traceback (most recent call last):
+  File "/root/ActToday/main.py", line 145, in main
+    bot.polling(none_stop=True, timeout=60)
+  File "/usr/local/lib/python3.10/dist-packages/telebot/__init__.py", line 1043, in polling
+    self.__threaded_polling(non_stop=non_stop, interval=interval, timeout=timeout, long_polling_timeout=long_polling_timeout,
+  File "/usr/local/lib/python3.10/dist-packages/telebot/__init__.py", line 1118, in __threaded_polling
+    raise e
+  File "/usr/local/lib/python3.10/dist-packages/telebot/__init__.py", line 1074, in __threaded_polling
+    self.worker_pool.raise_exceptions()
+  File "/usr/local/lib/python3.10/dist-packages/telebot/util.py", line 148, in raise_exceptions
+    raise self.exception_info
+  File "/usr/local/lib/python3.10/dist-packages/telebot/util.py", line 91, in run
+    task(*args, **kwargs)
+  File "/usr/local/lib/python3.10/dist-packages/telebot/__init__.py", line 6428, in _run_middlewares_and_handler
+    result = handler['function'](message)
+  File "/root/ActToday/main.py", line 24, in admin_panel
+    log(message=message, text=f'Пользователь {message.chat.username}, написал комманду /admin\n Администраторы {admins}-{message.chat.id}')
+NameError: name 'log' is not defined
+
+
+********************
+
