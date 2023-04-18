@@ -57,6 +57,40 @@ async def main(bot):
                     Log(error=traceback.format_exc())
                     bot.send_message(message.chat.id, error_invinte, reply_markup=menu_button(menu_list), parse_mode='Markdown')
 
+@bot.message_handler(content_types=['text', 'photo', 'video', 'document'])
+def broadcasts(message):
+    users = db.get_all_users()
+    total_users = len(users)
+    sent_count = 0
+
+    if message.text and ':' in message.text or message.caption and ':' in message.caption:
+        initial_text = "Рассылка началась:\n0%"
+        sent_message = bot.send_message(message.chat.id, initial_text)
+
+        for user in users:
+            try:
+                if message.text:
+                    bot.send_message(user[0], message.text)
+                elif message.content_type == 'photo':
+                    bot.send_photo(user[0], message.photo[-1].file_id, caption=message.caption)
+                elif message.content_type == 'video':
+                    bot.send_video(user[0], message.video.file_id, caption=message.caption)
+                elif message.content_type == 'document':
+                    bot.send_document(user[0], message.document.file_id, caption=message.caption)
+
+                sent_count += 1
+                config.Log(message=message, text=f'Пользователю @{user[1]} отправлено сообщение  # {message.text or message.caption} #', error=None)
+
+                progress = int(sent_count / total_users * 100)
+                updated_text = f"Рассылка началась:\n{progress}%"
+                bot.edit_message_text(updated_text, message.chat.id, sent_message.message_id)
+
+            except Exception as e:
+                config.Log(message=message, text=f"Ошибка отправки сообщения пользователю @{user[1]}: {str(e)}", error=None)
+
+        bot.send_message(message.chat.id, "Рассылка завершена")
+    else:
+        continue
 
     @bot.message_handler(commands=['admin'])
     def admin_panel(message):
@@ -89,7 +123,8 @@ async def main(bot):
                 bot.send_message(message.chat.id, 'https://www.youtube.com/watch?v=8UMEfg6pvDo',reply_markup=menu_button(menu_list))
             
             elif message.text == "Розпочати розсилання":
-                bot.send_message(message.chat.id, 'Напишiть текст повiдомленя')
+                msg=bot.send_message(message.chat.id, 'Напишiть текст або фото з текстом у форматi (Адмiнiстарор):(ваш текст)')
+                bot.register_next_step_handler(msg, broadcasts)
             
             else:
                 for user in db_read():
